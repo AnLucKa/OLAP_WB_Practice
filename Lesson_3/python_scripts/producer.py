@@ -1,7 +1,7 @@
 from confluent_kafka import Producer
 import json
 from clickhouse_driver import Client
-from typing import *
+
 
 dbname = 'default'
 
@@ -38,13 +38,13 @@ def delivery_report(err, msg):
 def send_message(data):
     try:
         # Асинхронная отправка сообщения
-        producer.produce('test_topic', data.encode('utf-8'), callback=delivery_report)
+        producer.produce('My_topic', data.encode('utf-8'), callback=delivery_report)
         producer.poll(0)  # Поллинг для обработки обратных вызовов
     except BufferError:
         print(f"Local producer queue is full ({len(producer)} messages awaiting delivery): try again")
 
 if __name__ == '__main__':
-    query = 'select tare_id, goods_id, dt, wh_id from tareFullDeclaration where operation_dt >= today() limit 100'
+    query = 'select tare_id, goods_id, dt from tareFullDeclaration limit 100'
     rows = client.execute(query)
 
     for row in rows:
@@ -53,7 +53,6 @@ if __name__ == '__main__':
                 'tare_id': row[0],
                 'goods_id': row[1],
                 'dt': row[2].strftime('%Y-%m-%dT%H:%M:%S'),
-                'wh_id': row[3]
             }
         )
         print(f'{json_row} sent to kafka.')

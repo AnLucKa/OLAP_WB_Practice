@@ -11,7 +11,7 @@ config = {
 }
 
 consumer = Consumer(**config)
-consumer.subscribe(['test_topic'])
+consumer.subscribe(['My_topic'])
 
 def read_messages():
     try:

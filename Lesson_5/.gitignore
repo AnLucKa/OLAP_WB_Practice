@@ -1,0 +1,8 @@
+__pycache__/
+.idea
+/commons/
+.vs/
+.DS_Store
+credentials.json
+venv/
+docker_data/

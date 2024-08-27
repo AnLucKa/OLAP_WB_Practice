@@ -7,10 +7,9 @@
 Выполняем скрипт [task_2.sql](https://github.com/AnLucKa/OLAP_WB_Practice/blob/main/Lesson_5/script.sql)<br>Результат:<br>
 ![Image alt](https://github.com/AnLucKa/OLAP_WB_Practice/blob/main/Lesson_5/imgs/Screenshot_6.png)
 ## 4. Запускаем Spark-таску:
-Выполняем код 
-`pip install clickhouse_driver clickhouse_cityhash lz4 pandas
-
-spark-submit --master spark://spark-master:7077  \
+Выполняем код:<br>
+`pip install clickhouse_driver clickhouse_cityhash lz4 pandas`<br>
+`spark-submit --master spark://spark-master:7077  \
     --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 \
     --executor-cores 1 \
     --conf spark.driver.extraJavaOptions="-Divy.cache.dir=/tmp -Divy.home=/tmp" \

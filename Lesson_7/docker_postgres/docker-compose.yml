@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:latest
+    container_name: pg_local
+    ports:
+      - '192.168.1.2:5432:5432'
+    environment:
+      - POSTGRES_USER=default
+      - POSTGRES_PASSWORD=default

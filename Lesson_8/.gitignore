@@ -1,0 +1,7 @@
+docker_airflow/config/
+docker_airflow/logs/
+docker_airflow/plugins/
+docker_airflow/py_cache/
+docker_data/
+.idea/
+datalens/

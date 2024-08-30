@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  clickhouse-server:
+    image: yandex/clickhouse-server
+    container_name: ch_local
+    ports:
+      - '8123:8123'
+      - '192.168.1.2:9000:9000'
+    environment:
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=default
+      - CLICKHOUSE_DB=tmp
+    volumes:
+      - C:\Users\AnLucKa\OLAP_WB_Practice\Lesson_8\docker_data\ch_local:/var/lib/clickhouse

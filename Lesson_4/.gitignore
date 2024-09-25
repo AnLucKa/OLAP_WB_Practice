@@ -1,0 +1,6 @@
+secrets/
+my_env/
+.idea/
+py_script/.idea/
+py_script/venv/
+py_script/secrets/

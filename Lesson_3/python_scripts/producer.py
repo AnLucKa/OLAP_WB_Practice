@@ -9,8 +9,8 @@ with open('./secrets/ch.json') as json_file:
     data = json.load(json_file)
 
 client = Client(data['server'][0]['host'],
-                user=data['server'][0]['user'],
-                password=data['server'][0]['password'],
+                #user=data['server'][0]['user'],
+                #password=data['server'][0]['password'],
                 port=data['server'][0]['port'],
                 verify=False,
                 database=dbname,
@@ -19,12 +19,10 @@ client = Client(data['server'][0]['host'],
                 compression=True)
 
 config = {
-    'bootstrap.servers': 'localhost:9093',  # адрес Kafka сервера
+    'bootstrap.servers': '192.168.1.2:29092',  # адрес Kafka сервера
     'client.id': 'simple-producer',
-    'sasl.mechanism':'PLAIN',
-    'security.protocol': 'SASL_PLAINTEXT',
-    'sasl.username': 'admin',
-    'sasl.password': 'admin-secret'
+    # 'sasl.mechanism':'PLAIN',
+    # 'security.protocol': 'PLAINTEXT',
 }
 
 producer = Producer(**config)
@@ -44,15 +42,16 @@ def send_message(data):
         print(f"Local producer queue is full ({len(producer)} messages awaiting delivery): try again")
 
 if __name__ == '__main__':
-    query = 'select tare_id, goods_id, dt from tareFullDeclaration limit 100'
+    query = 'select shk_id, dt, state_id, place_cod from ShkOnPlaceState_log limit 1000'
     rows = client.execute(query)
 
     for row in rows:
         json_row = json.dumps(
             {
-                'tare_id': row[0],
-                'goods_id': row[1],
-                'dt': row[2].strftime('%Y-%m-%dT%H:%M:%S'),
+                'shk_id': row[0],
+                'dt': row[1].strftime('%Y-%m-%dT%H:%M:%S'),
+                'state_id': row[2],
+                'place_cod': row[3]
             }
         )
         print(f'{json_row} sent to kafka.')

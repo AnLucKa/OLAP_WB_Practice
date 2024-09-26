@@ -17,15 +17,26 @@ os.environ['PYSPARK_SUBMIT_ARGS'] = '--jars org.apache.spark:spark-sql-kafka-0-1
 with open('/opt/spark/Streams/credentials.json') as json_file:
     сonnect_settings = json.load(json_file)
 
-ch_db_name = "default"
-ch_dst_table = "ShkOnPlaceState_log"
+ch_local_db_name = "default"
+ch_local_dst_table = "ShkOnPlaceState_log"
+ch_kafka_db_name = "default"
+ch_kafka_dst_table = "kafka"
 
 client = Client(сonnect_settings['ch_local'][0]['host'],
                 user=сonnect_settings['ch_local'][0]['user'],
                 password=сonnect_settings['ch_local'][0]['password'],
                 port=сonnect_settings['ch_local'][0]['port'],
                 verify=False,
-                database=ch_db_name,
+                database=ch_local_db_name,
+                settings={"numpy_columns": True, 'use_numpy': True},
+                compression=True)
+
+client_kafka = Client(сonnect_settings['ch_kafka'][0]['host'],
+                user=сonnect_settings['ch_kafka'][0]['user'],
+                password=сonnect_settings['ch_kafka'][0]['password'],
+                port=сonnect_settings['ch_kafka'][0]['port'],
+                verify=False,
+                database=ch_kafka_db_name,
                 settings={"numpy_columns": True, 'use_numpy': True},
                 compression=True)
 
@@ -39,7 +50,33 @@ kafka_topic = "My_topic"
 kafka_batch_size = 50
 processing_time = "5 second"
 
-checkpoint_path = f'hdfs://192.168.1.2:9000/kafka_checkpoint_dir/{spark_app_name}/{kafka_topic}/v1'
+checkpoint_path = f'/opt/kafka_checkpoint_dir/{spark_app_name}/{kafka_topic}/v1'
+
+# Подключаемся к ClickHouse и получаем последний оффсет
+def get_last_offset():
+    # Запрос для получения последнего оффсета из таблицы offset'ов
+    sql_offset_query = """
+        SELECT max(offset) 
+        FROM default.kafkaOffsets 
+        WHERE table_id = 1 
+        AND dt_load = (SELECT max(dt_load) FROM default.kafkaOffsets)
+    """
+
+    result = client_kafka.execute(sql_offset_query)
+    return result[0][0]
+
+# Если папка с чекпоинтами пустая, то берем отступ из бд
+if any(os.listdir(checkpoint_path)):
+    offset = 'earliest'
+    print('Чекпоинт обнаружен. Восстанавливаем сессию с помощью него.')
+else:
+    off = get_last_offset()
+    if off != 0:
+        offset = '{"My_topic":{"0":' + f'{get_last_offset()+1}' + '}}'
+        print(f'Чекпоинт не обнаружен. Восстанавливаем сессию с помощью бд. Задаем offset равный {off+1}')
+    else:
+        offset = '{"My_topic":{"0":' + f'{get_last_offset()}' + '}}'
+        print(f'Чекпоинт не обнаружен. В базе данных пусто. Начинаем считывать топик сначала, задаем offset равный 0')
 
 # Создание сессии спарк.
 spark = SparkSession \
@@ -68,7 +105,7 @@ df = spark \
     .option("kafka.bootstrap.servers", f"{kafka_host}:{kafka_port}") \
     .option("subscribe", kafka_topic) \
     .option("maxOffsetsPerTrigger", kafka_batch_size) \
-    .option("startingOffsets", "earliest") \
+    .option("startingOffsets", offset) \
     .option("failOnDataLoss", "false") \
     .option("forceDeleteTempCheckpointLocation", "true") \
     .load()
@@ -99,7 +136,7 @@ sql_tmp_create = """create table tmp.tmp_ShkOnPlaceState_log
         engine = Memory
 """
 
-sql_insert = f"""insert into {ch_db_name}.{ch_dst_table}
+sql_insert = f"""insert into {ch_local_db_name}.{ch_local_dst_table}
     select shk_id
         , dt
         , state_id
@@ -144,20 +181,39 @@ def foreach_batch_function(df2, epoch_id):
         # df2.show(5)
 
         # Убираем не нужные колонки.
-        df2 = column_filter(df2)
+        df2_filtered = column_filter(df2)
 
         client.execute(sql_tmp_create)
 
         # Записываем dataframe в ch.
-        load_to_ch(df2)
+        load_to_ch(df2_filtered)
 
         # Добавляем объем и записываем в конечную таблицу.
         client.execute(sql_insert)
         client.execute("drop table if exists tmp.tmp_ShkOnPlaceState_log")
 
+        # Получаем запись с максимальным оффсетом и временем
+        last_record = df2.orderBy(col("offset").desc()).first()
+
+        # Запись offset и timestamp в отдельную таблицу
+        last_offset = last_record.offset
+        last_timestamp = last_record.timestamp
+        last_timestamp_formatted = last_timestamp.strftime('%Y-%m-%d %H:%M:%S')
+
+        # SQL запрос для записи информации о последнем оффсете и времени
+        insert_offset_sql = f"""
+            INSERT INTO default.kafkaOffsets (table_id, offset, timestamp)
+            VALUES (1, {last_offset}, '{last_timestamp_formatted}')
+        """
+        client_kafka.execute(insert_offset_sql)
+        print(f"Строка (1, {last_offset}, '{last_timestamp_formatted}') вставлена в default.kafkaOffsets")
 
 # Описание как создаются микробатчи. processing_time - задается вначале скрипта
-query = df.select(from_json(col("value").cast("string"), schema).alias("value")) \
+query = df.select(
+        from_json(col("value").cast("string"), schema).alias("value"),
+        "offset",
+        "timestamp",
+        "topic") \
     .writeStream \
     .trigger(processingTime=processing_time) \
     .option("checkpointLocation", checkpoint_path) \

@@ -13,7 +13,8 @@ services:
     ports:
       - '8080:8080'
     volumes:
-      - C:\Users\AnLucKa\OLAP_WB_Practice\Diplom\docker_data\spark:/opt/spark:rw
+      - C:\Users\AnLucKa\OLAP_WB_Practice\Diplom\docker_data\spark\Streams:/opt/spark/Streams
+      - C:\Users\AnLucKa\OLAP_WB_Practice\Diplom\docker_data\spark\Checkpoint:/opt/kafka_checkpoint_dir
 
   spark-worker:
     image: docker.io/verboistim/spark:3.5.1-debian-12-r7-bugfix

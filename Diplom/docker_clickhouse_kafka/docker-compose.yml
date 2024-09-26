@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  clickhouse-server:
+    image: yandex/clickhouse-server
+    container_name: ch_kafka
+    ports:
+      - '8125:8123'
+      - '192.168.1.2:9002:9000'
+    environment:
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=default
+      - CLICKHOUSE_DB=tmp
+    volumes:
+      - C:\Users\AnLucKa\OLAP_WB_Practice\Diplom\docker_data\ch_kafka:/var/lib/clickhouse
